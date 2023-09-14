@@ -1,0 +1,30 @@
+#!/bin/sh
+
+# abx listening test with mpv
+# $ mpv-abx <a> <b>
+# press enter to toggle
+
+a="$(mktemp /tmp/mpv-abx-a.XXX)"
+b="$(mktemp /tmp/mpv-abx-b.XXX)"
+trap 'rm /tmp/mpv-abx-*' EXIT
+
+mpv --input-ipc-server="$a" "$1" </dev/null >/dev/null 2>&1 &
+mpv --input-ipc-server="$b" "$2" </dev/null >/dev/null 2>&1 &
+trap 'kill $(jobs -p) 2>/dev/null' EXIT
+
+setvol() { echo '{ "command": ["set_property", "volume", '"$2"'] }' | socat - "$1"; }
+tern() { [ "$1" = "$2" ] && echo "$3" || echo "$4"; }
+
+toggle() {
+    active=$(tern "$active" a b a)
+    echo "listening to $active"
+    setvol "$a" "$(tern "$active" a 100 0)"
+    setvol "$b" "$(tern "$active" a 0 100)"
+}
+
+sleep 0.2
+
+toggle
+while read -r; do
+    toggle
+done
